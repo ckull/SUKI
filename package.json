@@ -1,0 +1,21 @@
+{
+  "name": "ls",
+  "version": "1.0.0",
+  "description": "discord bot",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cleverbot-node": "^0.3.11",
+    "discord.js": "^11.2.1",
+    "google-translate": "^2.0.5",
+    "node-opus": "^0.2.7",
+    "prism-media": "github:hydrabolt/prism-media",
+    "simple-youtube-api": "^5.0.0",
+    "spotify-web-api-node": "^2.5.0",
+    "ytdl-core": "^0.18.3"
+  }
+}
