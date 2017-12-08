@@ -2,26 +2,32 @@ const Discord = require("discord.js");
 const client = new Discord.Client();
 const yt = require('ytdl-core');
 const CleverBot = require('cleverbot-node');
+const setting = require('./setting.json')
+const firebase = require('./config');
+const moment = require('moment');
+const ngrok = require('ngrok');
 
 const YouTube = require('simple-youtube-api');
 var songs = [];
+var repeat = [];
+var replay = false;
 let prefix = "!";
-const api = 'YOUR_GOOGLE_API_HERE'
-const botApi = 'YOUR_CLEVER_API_HERE'
-const token = 'YOUR_TOKEN_HERE'
+
 
 var cleverBot = new CleverBot;
-var youtube = new YouTube(api);
-const googleTranslate = require('google-translate')(api);
+var youtube = new YouTube(setting.googleApi);
+const googleTranslate = require('google-translate')(setting.googleApi);
 
-client.login(token);
+var db = firebase.db.ref();
+
+client.login(setting.token);
 
 client.on('ready', () => {
 	console.log(`Logged in as ${client.user.username}!`);
 });
 
 
-client.on('message', message => {
+client.on('message', async message => {
 	if (message.author.bot) return;
 	if (!message.content.startsWith(prefix)) return;
 
@@ -44,24 +50,49 @@ client.on('message', message => {
 		voiceChannel.join()
 			.then(connection => {
 		
+				// ngrok.connect(8080, (err, url) => {
+				// 	message.channel.sendMessage(`Server is serving here ${url}`)
+				// 	if(err){
+				// 		console.log(err)
+				// 		return
+				// 	}
+				// });
+
 				let dispatcher;
 				(function play(song) {
 					console.log('begin')
 					if (song === undefined) {
+						if(replay === true){
+							if(songs.length == 0){
+								console.log('replay case')
+								songs = repeat.slice(0);
+								repeat = []
+								play(songs.shift())
+								return;
+							}
+						}
 						message.channel.sendMessage(`\`Empty song\``)
+						console.log('empty executed')
 						return;
 					}
-					console.log(`Song URL: ${song.url}`)
+					
+					repeat.push({
+						url: song.url,
+						title: song.title,
+						requester: song.requester
+					});
+				
 					let stream = yt(song.url, {
 						audioonly: true
 					});
 					
-					let dispatcher = connection.playStream(stream, {seek: 0, volume: 1});
+					let dispatcher = connection.playStream(stream)
+					
 					message.channel.sendMessage(`Now playing: \`${song.title}\``)
 					let collector = message.channel.createCollector(m => m);
 					collector.on('message', m => {
 						if (m.content.startsWith(prefix + 'pause')) {
-							message.channel.sendMessage(`pause`).then(() => {dispatcher.pause()})
+							message.channel.sendMessage(`\`pause\`, !resume to resume the streaming`).then(() => {dispatcher.pause()})
 						} else if (m.content.startsWith(prefix + 'resume')) {
 							message.channel.sendMessage(`resume`).then(() => {dispatcher.resume()})
 						} else if (m.content.startsWith(prefix + 'skip')) {
@@ -100,6 +131,8 @@ client.on('message', message => {
 						play(songs.shift());
 					})
 				})(songs.shift())
+			
+
 			}).catch(console.error)
 	}
 
@@ -124,13 +157,19 @@ client.on('message', message => {
 	}
 
 	if (command === 'queue') {
+		let list;
 		if (songs.length == 0) {
 			message.channel.sendMessage(`Empty playlist`)
 		} else {
 			songs.forEach((song, i) => {
-				message.channel.sendMessage(`${i+1}, ${song.title}`)
+				message.channel.sendMessage(`${i}. ${song.title}, request by ${song.requester}`)
 			})
 		}
+	}
+
+	if(command === 'replay'){
+		replay = !replay;
+		message.channel.sendMessage(`Replay: ${replay}`)
 	}
 
 	if (command === 'join') {
@@ -140,7 +179,7 @@ client.on('message', message => {
 		}
 		voiceChannel.join().then(connection => {
 			message.channel.sendMessage(`joined voice channel: ${connection.channel}`);
-		}).catch(err => {
+		}).catch( (err) => {
 			message.channel.sendMessage(`${err}`);
 		})
 	}
@@ -150,31 +189,45 @@ client.on('message', message => {
 	}
 
 	if (command === 'clever') {
+		if(arg === undefined || arg == '') {return}
 
 		cleverBot.configure({
-			botapi: botApi 
+			botapi: setting.cleverApi
 		});
+
+		var separate = message.content.split(" ")
+		var removed = separate.splice(1).join(" ")
+		console.log('Say: ' + removed);
+		cleverBot.write(removed, (response) => {
+			message.channel.sendMessage(response.output);
+		});			
+
 		//test
-		googleTranslate.detectLanguage(arg, (err, detection) => {
-			if(detection.language != 'en'){
-				googleTranslate.translate(arg, 'en', (err, translation) => {
-					let translateText = translation.translatedText;
-					console.log('transalte to eng: ' + translateText )
-					cleverBot.write(translateText, (response) => {
-						console.log('response in eng: ' + response.output)
-						googleTranslate.translate(response.output, detection.language, (err, translation) => {
-							message.channel.sendMessage(translation.translatedText);
-						})
-					});		
-				})		
-			}else{
-				cleverBot.write(arg, (response) => {
-					message.channel.sendMessage(response.output);
-				});	
-			}			
-		})
+		// googleTranslate.detectLanguage(arg, (err, detection) => {
+		// 	console.log('arg: ' + arg)
+
+		// 	if(detection.language != 'en'){
+		// 		googleTranslate.translate(arg, 'en', (err, translation) => {
+		// 			let translateText = translation.translatedText;
+		// 			console.log('transalte to eng: ' + translateText )
+		// 			cleverBot.write(translateText, (response) => {
+		// 				console.log('response in eng: ' + response.output)
+		// 				googleTranslate.translate(response.output, detection.language, (err, translation) => {
+		// 					message.channel.sendMessage(translation.translatedText);
+		// 				})
+		// 			});		
+		// 		})		
+		// 	}else{
+		// 		cleverBot.write(arg, (response) => {
+		// 			message.channel.sendMessage(response.output);
+		// 		});	
+		// 	}
+		// 	if(err) {
+		// 		console.log(err)
+		// 		return
+		// 	}		
+		// })
 	}
-	
 
 	if (command === 'shuffle') {
 		if(songs === undefined){
@@ -183,6 +236,84 @@ client.on('message', message => {
 		}else{
 			shuffle(songs);
 			console.log('shuffle the songs')
+		}
+	}
+
+	if (command === 'db') {
+		if(arg === undefined || arg == '') {
+			message.channel.sendMessage(`
+				find: show dbs,
+				find <db_name> : show information inside db,
+				add <youtube_url>: add track to db,
+				create: create db
+			`)
+			return
+		}
+
+		if(arg === 'find'){
+			if(arg2 === undefined || arg2 == ''){
+				db.child('playlist').once('value', snapshot => {
+					var i = 0;
+					snapshot.forEach( snap => {
+						message.channel.sendMessage(`#${i+1}, ${snap.key}`)
+						i++;
+					})
+				})
+				return;
+			}else{
+				db.child('playlist').child(message.author.username).child('track').once('value', snapshot => {
+					var i = 0;
+					var totalLength = 0;
+					snapshot.forEach( snap => {
+						totalLength += snap.val().length/60;
+						message.channel.sendMessage(`#${i+1}, ${snap.val().title}}`)
+						i++;
+					})
+					message.channel.sendMessage(`Total Minutes: ${totalLength}`)
+				})
+			}
+		}else if(arg === 'create'){
+			if(arg2 === undefined || arg2 == '') {
+				db.child('playlist').child(message.author.username).set({
+					Date: moment().format('MMMM Do YYYY h:mm:ss a')
+				});
+				message.channel.sendMessage(`Successfully create your playlist: ${message.author.username}`)
+			}
+		}else if(arg === 'add'){
+			if(arg2 === undefined || arg2 == '') {return}
+
+			yt.getInfo(arg2, (err, info) => {
+				var id = yt.getURLVideoID(arg2)
+				if (err) {
+					message.channel.sendMessage(`${err}`);
+					return;
+				}else{
+					db.child('playlist').child(message.author.username).child('track').child(id).set({
+						url: info.video_url,
+						title: info.title,
+						length: info.length_seconds
+					}, (err) => {
+						console.log(err)
+					})
+				}
+				message.channel.sendMessage(`${info.title} has been added to ${message.author.username}`);
+			})
+
+		}else if(arg === 'use'){
+			if(arg2 === undefined || arg2 == ''){
+				arg2 = message.author.username;
+			}
+			db.child('playlist').child(arg2).child('track').once('value', snapshot => {
+				songs = [];
+				snapshot.forEach( snap => {
+					songs.push({
+						url: snap.val().url,
+						title: snap.val().title,
+						requester: message.author.username 
+					})
+				})
+				message.channel.sendMessage(`Successfully added to current playlist`)
+			}).catch(console.log)
 		}
 	}
 
@@ -237,24 +368,37 @@ client.on('message', message => {
 	
 	if (command === 'clear'){
 		songs = [];
-		message.channel.sendMessage('Added playlist')
+
+		message.channel.sendMessage('cleared')
 	}
 
 	if (command === 'help') {
-		message.channel.sendMessage(`Command List:
+		message.channel.sendMessage(`Commands:
 			!ping: return timeStamp
-			!play: stream song
-				!pause, !resume, !skip(bug), !vol++, !vol--, !time, !playing
+			!play: play song in playlist
+				!pause
+				!resume
+				!skip(bug)
+				!vol++
+				!vol--
+				!time
+				!playing
 			!add <youtbe_url>: add song to playlist
 			!join: join voiceChannel
 			!avatar: Return requester's profile image
-			!clever <text>: comunicate with chat bot <support any language>
+			!clever <text>: communicate with chat bot <support any language> /beta
 			!shuffle: shuffle playlist
-			!clear: clear playlist
+			!clear: clear all the song in playlist
+			!replay: set loop for playlist
 			!youtube 
 				playlist
-					info <youtube_playlist_url>
+					info <youtube_playlist_url>: show information of playlist
 					add  <youtube_playlist_url>
+			!db 
+				find: show dbs,
+				find <db_name> : show information inside db,
+				add <youtube_url>: add track to db,
+				create: create db
 		`)
 	}
 	
@@ -268,6 +412,6 @@ client.on('message', message => {
 		}
 		return a;
 	}
-});
 
+})
 
