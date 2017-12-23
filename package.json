@@ -4,18 +4,35 @@
   "description": "discord bot",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon index.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "MALjs": "^0.1.0",
+    "axios": "^0.17.1",
     "cleverbot-node": "^0.3.11",
-    "discord.js": "^11.2.1",
+    "discord.js": "git+https://github.com/hydrabolt/discord.js.git",
+    "express": "^4.16.2",
+    "firebase": "^4.8.0",
+    "firebase-admin": "^5.5.1",
+    "google-images": "^2.1.0",
     "google-translate": "^2.0.5",
+    "google-tts-api": "0.0.2",
+    "localtunnel": "^1.8.3",
+    "moment": "^2.20.1",
+    "ngrok": "^2.2.24",
     "node-opus": "^0.2.7",
-    "prism-media": "github:hydrabolt/prism-media",
+    "overwatch-js": "^1.6.0",
+    "request": "^2.83.0",
     "simple-youtube-api": "^5.0.0",
+    "socket.io": "^2.0.4",
     "spotify-web-api-node": "^2.5.0",
     "ytdl-core": "^0.18.3"
+  },
+  "devDependencies": {
+    "nodemon": "^1.13.3",
+    "prism-media": "git+https://github.com/hydrabolt/prism-media.git"
   }
 }
