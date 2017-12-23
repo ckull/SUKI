@@ -3,7 +3,6 @@
    "googleApi": "API",
    "cleverApi": "API",
    "token": "API",
-   "cseID": "API",
    "firebase": "API",
    "spotify": {
        "clientId": "API",
