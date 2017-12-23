@@ -1,2 +1,0 @@
-# SUKI
-Discord bot 
